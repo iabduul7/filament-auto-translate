@@ -15,9 +15,10 @@ class FilamentAutoTransliterate {
     this.isApplying = false;
     this.debug = false;
 
-    // In-field loading spinner: the injected node and its Filament wrapper host.
-    this.spinnerEl = null;
-    this.spinnerHost = null;
+    // In-field loading spinners, tracked per Filament input wrapper so
+    // concurrent requests (rapid space presses, or different fields) never clear
+    // each other's spinner. host element -> { el, count }.
+    this.spinners = new Map();
 
     this.handleFocus = this.handleFocus.bind(this);
     this.handleBlur = this.handleBlur.bind(this);
@@ -160,49 +161,62 @@ class FilamentAutoTransliterate {
   // Begin the loading indicator for a field. Prefers a compact spinner inside
   // the field's trailing edge; falls back to the below-field box for hosts whose
   // inputs aren't wrapped in Filament's `.fi-input-wrp`.
+  // Begin the loading indicator for a field. Prefers a compact spinner inside
+  // the field's trailing edge; falls back to the below-field box for hosts whose
+  // inputs aren't wrapped in Filament's `.fi-input-wrp`. Reference-counted per
+  // host so overlapping requests on the same field don't stack or prematurely
+  // clear the spinner.
   startLoading(input) {
     const host = input.closest(".fi-input-wrp");
     if (!host) {
       this.showLoading(input);
       return;
     }
-    this.injectFieldSpinner(host);
+
+    const existing = this.spinners.get(host);
+    if (existing) {
+      existing.count += 1;
+      return;
+    }
+
+    host.classList.add("fat-loading-host");
+    const el = document.createElement("span");
+    el.className = "fat-field-spinner";
+    el.innerHTML =
+      '<svg class="fat-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="fat-spin-track" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+    host.appendChild(el);
+
+    this.spinners.set(host, { el, count: 1 });
   }
 
-  // End the loading indicator regardless of which form was shown.
+  // End the loading indicator for the field that owns `input`. The spinner is
+  // only removed once every in-flight request for that field has finished.
   stopLoading(input) {
-    this.removeFieldSpinner();
-    // Only hide the box if it is showing the loading state — never clobber an
-    // error message (which manages its own auto-dismiss).
+    const host = input.closest(".fi-input-wrp");
+    const entry = host && this.spinners.get(host);
+    if (entry) {
+      entry.count -= 1;
+      if (entry.count <= 0) {
+        entry.el.remove();
+        host.classList.remove("fat-loading-host");
+        this.spinners.delete(host);
+      }
+    }
+
+    // Only hide the below-field box if it is showing the loading state (fallback
+    // path) — never clobber an error message (which manages its own dismiss).
     if (this.overlay.classList.contains("is-loading")) {
       this.hideOverlay();
     }
   }
 
-  injectFieldSpinner(host) {
-    // Clear any previous spinner first so rapid space presses can't stack them.
-    this.removeFieldSpinner();
-
-    host.classList.add("fat-loading-host");
-    const spinner = document.createElement("span");
-    spinner.className = "fat-field-spinner";
-    spinner.innerHTML =
-      '<svg class="fat-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="fat-spin-track" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
-    host.appendChild(spinner);
-
-    this.spinnerEl = spinner;
-    this.spinnerHost = host;
-  }
-
-  removeFieldSpinner() {
-    if (this.spinnerEl) {
-      this.spinnerEl.remove();
-      this.spinnerEl = null;
-    }
-    if (this.spinnerHost) {
-      this.spinnerHost.classList.remove("fat-loading-host");
-      this.spinnerHost = null;
-    }
+  // Hard-clear every spinner (e.g. when the feature is toggled off mid-request).
+  removeAllSpinners() {
+    this.spinners.forEach((entry, host) => {
+      entry.el.remove();
+      host.classList.remove("fat-loading-host");
+    });
+    this.spinners.clear();
   }
 
   showLoading(input) {
@@ -288,7 +302,7 @@ class FilamentAutoTransliterate {
     localStorage.setItem("fat_enabled", enabled ? "true" : "false");
     if (!enabled) {
       this.hideOverlay();
-      this.removeFieldSpinner();
+      this.removeAllSpinners();
     }
   }
 }
