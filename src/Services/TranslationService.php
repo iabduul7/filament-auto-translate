@@ -178,18 +178,16 @@ class TranslationService
         }
 
         try {
-            TranslationCache::updateOrCreate(
-                [
-                    'original_text' => $text,
-                    'target_language' => $targetLang,
-                    'mode' => $mode->value,
-                ],
-                [
-                    'translated_text' => $result->translated,
-                    'source' => $result->source,
-                    'confidence' => $result->confidence,
-                    'processing_time' => $result->processingTime,
-                ],
+            // Use the model helper, which finds the row via the hash index rather
+            // than matching on the unindexed `original_text` TEXT column.
+            TranslationCache::cacheTranslation(
+                $text,
+                (string) $result->translated,
+                $targetLang,
+                (string) $result->source,
+                $result->confidence,
+                $result->processingTime,
+                $mode->value,
             );
         } catch (\Throwable $e) {
             Log::error('[FilamentAutoTransliterate] cache write failed: '.$e->getMessage());
