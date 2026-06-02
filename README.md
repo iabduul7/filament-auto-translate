@@ -28,8 +28,20 @@ Transliterate mode **never silently falls through** to meaning-based translation
 
 ```bash
 composer require iabduul7/filament-auto-transliterate
-php artisan migrate
+
+# Publishes the config + migration and offers to run migrations.
+php artisan filament-auto-transliterate:install
+
 php artisan filament:assets
+```
+
+The migration ships as a publishable stub, so use the install command above
+(`php artisan migrate` alone won't create the cache table until the migration is
+published). To publish manually instead:
+
+```bash
+php artisan vendor:publish --tag="filament-auto-transliterate-migrations"
+php artisan migrate
 ```
 
 Add the plugin to a panel:

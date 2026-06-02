@@ -160,9 +160,6 @@ class FilamentAutoTransliterate {
 
   // Begin the loading indicator for a field. Prefers a compact spinner inside
   // the field's trailing edge; falls back to the below-field box for hosts whose
-  // inputs aren't wrapped in Filament's `.fi-input-wrp`.
-  // Begin the loading indicator for a field. Prefers a compact spinner inside
-  // the field's trailing edge; falls back to the below-field box for hosts whose
   // inputs aren't wrapped in Filament's `.fi-input-wrp`. Reference-counted per
   // host so overlapping requests on the same field don't stack or prematurely
   // clear the spinner.
