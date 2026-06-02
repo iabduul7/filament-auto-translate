@@ -44,3 +44,9 @@ Open-source Filament plugin: inline, as-you-type transliteration/translation for
 ## Testing
 - Pest + `orchestra/testbench`, in-memory SQLite. Run: `vendor/bin/pest`. Format: `vendor/bin/pint`.
 - The DOM/spinner JS behaviour is NOT covered by the PHP suite — verify spinner/toggle/morph behaviour in a real browser.
+
+## CI / branch protection
+- `.github/workflows/run-tests.yml` runs on PRs to (and pushes to) `main`: a `test` matrix (PHP 8.2/8.3/8.4 × Laravel 11/12) plus a `code-style` job (`pint --test`, check name "Pint (code style)").
+- **`main` is branch-protected**: all 6 matrix jobs + "Pint (code style)" are REQUIRED status checks, `strict` (branch must be up to date), force-push/deletion disabled. Admins are NOT enforced; no required PR review. So the merge gate is CI-green only.
+- The matrix job names ARE the required-check contexts — if you change the matrix (PHP/Laravel versions), update the branch-protection required checks to match, or `main` merges will hang waiting on a check that never reports.
+- The separate `fix-php-code-style-issues.yml` only runs on `push` with `**.php` paths and auto-commits Pint fixes — it is NOT a PR gate (that's why a dedicated `pint --test` job exists for protection).
